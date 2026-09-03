@@ -1,0 +1,33 @@
+{
+  "flutter": {
+    "platforms": {
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "revol-734dd",
+          "configurations": {
+            "android": "1:716404099932:android:e9047db6c50d868b6e8f99",
+            "ios": "1:716404099932:ios:8323afe432c16aeb6e8f99",
+            "web": "1:716404099932:web:2aed40d4bf1f35856e8f99"
+          }
+        }
+      }
+    }
+  },
+  "hosting": {
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  },
+  "database": {
+    "rules": "database.rules.json"
+  }
+}

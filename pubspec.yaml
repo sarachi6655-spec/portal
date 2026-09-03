@@ -1,0 +1,33 @@
+name: revol_portal
+description: "Revol LIMS Client & Sample Management Portal"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.6
+  google_fonts: ^6.2.1
+  font_awesome_flutter: ^10.7.0
+  dio: ^5.4.3+1
+  flutter_secure_storage: ^9.2.2
+  cached_network_image: ^3.3.1
+  intl: ^0.19.0
+  flutter_spinkit: ^5.2.1
+  flutter_animate: ^4.5.2
+  url_launcher: ^6.3.0
+  firebase_core: ^3.6.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
