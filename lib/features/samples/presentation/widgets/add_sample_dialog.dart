@@ -26,7 +26,21 @@ class _AddSampleDialogState extends State<AddSampleDialog> {
   bool _isSubmitting = false;
 
   final List<String> _categories = ['Sample Point', 'Item', 'Equipment', 'Chemicals', 'Environmental'];
-  final List<String> _statuses = ['Pending', 'In Progress', 'Completed', 'Hold'];
+  late final List<String> _statuses;
+
+  @override
+  void initState() {
+    super.initState();
+    final dynamicStatuses = widget.controller.availableStatusFilters
+        .where((s) => s.toLowerCase() != 'all')
+        .toList();
+    _statuses = dynamicStatuses.isNotEmpty
+        ? dynamicStatuses
+        : ['Pending', 'In Progress', 'Completed', 'Hold'];
+    if (!_statuses.contains(_selectedStatus) && _statuses.isNotEmpty) {
+      _selectedStatus = _statuses.first;
+    }
+  }
 
   @override
   void dispose() {

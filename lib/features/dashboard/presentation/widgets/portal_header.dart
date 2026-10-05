@@ -123,10 +123,7 @@ class PortalHeader extends StatelessWidget {
                         gradient: AppColors.primaryGradient,
                       ),
                       child: const Center(
-                        child: Text(
-                          'AJ',
-                          style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                        ),
+                        child: Icon(Icons.person),
                       ),
                     ),
                   ),

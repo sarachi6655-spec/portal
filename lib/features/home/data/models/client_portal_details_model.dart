@@ -14,9 +14,7 @@ class ClientModel {
   factory ClientModel.fromJson(Map<String, dynamic> json) {
     final path = json['clientIcon_FilePath']?.toString() ?? '';
     final file = json['clientIcon_FileName']?.toString() ?? '';
-    final url = file.isNotEmpty
-        ? Uri.encodeFull('${ApiConstants.diagnosticAttachmentUrl}$path$file')
-        : '';
+    final url = file.isNotEmpty ? Uri.encodeFull('${ApiConstants.diagnosticAttachmentUrl}$path$file') : '';
 
     return ClientModel(
       name: json['clientName']?.toString() ?? '',
@@ -46,9 +44,7 @@ class ServiceItemModel {
     required String file,
     required String link,
   }) {
-    final url = file.isNotEmpty
-        ? Uri.encodeFull('${ApiConstants.diagnosticAttachmentUrl}$path$file')
-        : '';
+    final url = file.isNotEmpty ? Uri.encodeFull('${ApiConstants.diagnosticAttachmentUrl}$path$file') : '';
     return ServiceItemModel(
       title: title,
       content: content,
@@ -139,6 +135,7 @@ class ClientPortalDetailsModel {
   final String youTube;
   final String gPlus;
   final String pinterest;
+  final bool isServiceWithPrice;
 
   ClientPortalDetailsModel({
     required this.boxOneHeaderOne,
@@ -199,12 +196,11 @@ class ClientPortalDetailsModel {
     required this.youTube,
     required this.gPlus,
     required this.pinterest,
+    required this.isServiceWithPrice,
   });
 
   factory ClientPortalDetailsModel.fromJson(Map<String, dynamic> json) {
-    final payload = json['data'] is Map<String, dynamic>
-        ? json['data'] as Map<String, dynamic>
-        : (json['data'] is Map ? Map<String, dynamic>.from(json['data'] as Map) : json);
+    final payload = json['data'] is Map<String, dynamic> ? json['data'] as Map<String, dynamic> : (json['data'] is Map ? Map<String, dynamic>.from(json['data'] as Map) : json);
 
     String buildUrl(dynamic path, dynamic file) {
       if (file == null || file.toString().isEmpty || file.toString() == 'null') return '';
@@ -301,84 +297,8 @@ class ClientPortalDetailsModel {
 
     // Client List
     final rawClients = payload['clientList'] as List<dynamic>? ?? [];
-    final clients = rawClients
-        .where((c) => c != null && c is Map)
-        .map((c) => ClientModel.fromJson(c is Map<String, dynamic> ? c : Map<String, dynamic>.from(c as Map)))
-        .where((c) => c.name.trim().isNotEmpty && !['testing', 'asdj', 'test'].contains(c.name.trim().toLowerCase()))
-        .toList();
+    final clients = rawClients.where((c) => c != null && c is Map).map((c) => ClientModel.fromJson(c is Map<String, dynamic> ? c : Map<String, dynamic>.from(c as Map))).where((c) => c.name.trim().isNotEmpty && !['testing', 'asdj', 'test'].contains(c.name.trim().toLowerCase())).toList();
 
-    return ClientPortalDetailsModel(
-      boxOneHeaderOne: payload['BoxOneHeaderOne']?.toString() ?? '',
-      boxOneHeaderTwo: payload['BoxOneHeaderTwo']?.toString() ?? '',
-      boxoneContent: payload['BoxoneContent']?.toString() ?? '',
-      boxoneLink: payload['BoxoneLink']?.toString() ?? '',
-      sliderImage1: buildUrl(p1, f1),
-
-      boxTwoHeaderOne: payload['BoxTwoHeaderOne']?.toString() ?? '',
-      boxTwoHeaderTwo: payload['BoxTwoHeaderTwo']?.toString() ?? '',
-      boxTwoContent: payload['BoxTwoContent']?.toString() ?? '',
-      boxTwoLink: payload['BoxTwoLink']?.toString() ?? '',
-      sliderImage2: buildUrl(p2, f2),
-
-      boxThreeHeaderOne: payload['BoxThreeHeaderOne']?.toString() ?? '',
-      boxThreeHeaderTwo: payload['BoxThreeHeaderTwo']?.toString() ?? '',
-      boxThreeContent: payload['BoxThreeContent']?.toString() ?? '',
-      boxThreeLink: payload['BoxThreeLink']?.toString() ?? '',
-      sliderImage3: buildUrl(p3, f3),
-
-      headerLogo: buildUrl(hlp, hlf),
-      footerLogo: buildUrl(flp, flf),
-
-      blockOneBoxOneTitle: payload['BlockoneBoxOneTitle']?.toString() ?? '',
-      blockOneBoxOneContent: payload['BlockOneBoxOneContent']?.toString() ?? '',
-      blockOneBoxOneIcon: buildUrl(b1b1p, b1b1f),
-      blockOneBoxOneLink: payload['BlockoneBoxOneLink']?.toString() ?? '',
-
-      blockOneBoxTwoTitle: payload['BlockOneBoxTwoTitle']?.toString() ?? '',
-      blockOneBoxTwoContent: payload['BlockOneBoxTwoContent']?.toString() ?? '',
-      blockOneBoxTwoIcon: buildUrl(b1b2p, b1b2f),
-      blockOneBoxTwoLink: payload['BlockOneBoxTwoLink']?.toString() ?? '',
-
-      blockOneBoxThreeTitle: payload['BlockoneBoxThreeTitle']?.toString() ?? '',
-      blockOneBoxThreeContent: payload['BlockoneBoxThreeContent']?.toString() ?? '',
-      blockOneBoxThreeIcon: buildUrl(b1b3p, b1b3f),
-      blockOneBoxThreeLink: payload['BlockoneBoxThreeLink']?.toString() ?? '',
-
-      blockOneBoxFourTitle: payload['BlockoneBoxFourTitle']?.toString() ?? '',
-      blockOneBoxFourContent: payload['BlockoneBoxFourContent']?.toString() ?? '',
-      blockOneBoxFourIcon: buildUrl(b1b4p, b1b4f),
-      blockOneBoxFourLink: payload['BlockoneBoxFourLink']?.toString() ?? '',
-
-      blockTwoHeader: payload['BlockTwoHeader']?.toString() ?? '',
-      blockTwoContent: payload['BlockTwoContent']?.toString() ?? '',
-      blockTwoImage: buildUrl(b2p, b2f),
-      blockTwoLink: payload['BlockTwoLink']?.toString() ?? '',
-
-      blockThreeHeader: payload['BlockThreeHeader']?.toString() ?? '',
-      blockThreeContent: payload['BlockThreeContent']?.toString() ?? '',
-      blockThreeImage: buildUrl(b3p, b3f),
-      blockThreeLink: payload['BlockThreeLink']?.toString() ?? '',
-
-      blockFourHeaderOne: payload['BlockFourHeaderOne']?.toString() ?? 'OUR SERVICES',
-      blockFourHeaderTwo: payload['BlockFourHeaderTwo']?.toString() ?? 'We provide various Directions',
-      services: services,
-
-      blockFiveTitle: payload['BlockFiveTitle']?.toString() ?? '',
-      blockFiveContent: payload['BlockFiveContent']?.toString() ?? '',
-      blockFiveVideoLink: payload['BlockFiveVideoLink']?.toString() ?? '',
-      blockFiveHeader: payload['BlockFiveHeader']?.toString() ?? '',
-
-      clients: clients,
-
-      mobile: payload['Mobile']?.toString() ?? '',
-      email: payload['Email']?.toString() ?? '',
-      address: payload['Address']?.toString() ?? '',
-      facebook: payload['Facebook']?.toString() ?? '',
-      instagram: payload['Instagram']?.toString() ?? '',
-      linkedIn: payload['LinkedIn']?.toString() ?? '',
-      youTube: payload['YouTube']?.toString() ?? '',
-      gPlus: payload['GPluse']?.toString() ?? '',
-      pinterest: payload['Pinterest']?.toString() ?? '',
-    );
+    return ClientPortalDetailsModel(boxOneHeaderOne: payload['BoxOneHeaderOne']?.toString() ?? '', boxOneHeaderTwo: payload['BoxOneHeaderTwo']?.toString() ?? '', boxoneContent: payload['BoxoneContent']?.toString() ?? '', boxoneLink: payload['BoxoneLink']?.toString() ?? '', sliderImage1: buildUrl(p1, f1), boxTwoHeaderOne: payload['BoxTwoHeaderOne']?.toString() ?? '', boxTwoHeaderTwo: payload['BoxTwoHeaderTwo']?.toString() ?? '', boxTwoContent: payload['BoxTwoContent']?.toString() ?? '', boxTwoLink: payload['BoxTwoLink']?.toString() ?? '', sliderImage2: buildUrl(p2, f2), boxThreeHeaderOne: payload['BoxThreeHeaderOne']?.toString() ?? '', boxThreeHeaderTwo: payload['BoxThreeHeaderTwo']?.toString() ?? '', boxThreeContent: payload['BoxThreeContent']?.toString() ?? '', boxThreeLink: payload['BoxThreeLink']?.toString() ?? '', sliderImage3: buildUrl(p3, f3), headerLogo: buildUrl(hlp, hlf), footerLogo: buildUrl(flp, flf), blockOneBoxOneTitle: payload['BlockoneBoxOneTitle']?.toString() ?? '', blockOneBoxOneContent: payload['BlockOneBoxOneContent']?.toString() ?? '', blockOneBoxOneIcon: buildUrl(b1b1p, b1b1f), blockOneBoxOneLink: payload['BlockoneBoxOneLink']?.toString() ?? '', blockOneBoxTwoTitle: payload['BlockOneBoxTwoTitle']?.toString() ?? '', blockOneBoxTwoContent: payload['BlockOneBoxTwoContent']?.toString() ?? '', blockOneBoxTwoIcon: buildUrl(b1b2p, b1b2f), blockOneBoxTwoLink: payload['BlockOneBoxTwoLink']?.toString() ?? '', blockOneBoxThreeTitle: payload['BlockoneBoxThreeTitle']?.toString() ?? '', blockOneBoxThreeContent: payload['BlockoneBoxThreeContent']?.toString() ?? '', blockOneBoxThreeIcon: buildUrl(b1b3p, b1b3f), blockOneBoxThreeLink: payload['BlockoneBoxThreeLink']?.toString() ?? '', blockOneBoxFourTitle: payload['BlockoneBoxFourTitle']?.toString() ?? '', blockOneBoxFourContent: payload['BlockoneBoxFourContent']?.toString() ?? '', blockOneBoxFourIcon: buildUrl(b1b4p, b1b4f), blockOneBoxFourLink: payload['BlockoneBoxFourLink']?.toString() ?? '', blockTwoHeader: payload['BlockTwoHeader']?.toString() ?? '', blockTwoContent: payload['BlockTwoContent']?.toString() ?? '', blockTwoImage: buildUrl(b2p, b2f), blockTwoLink: payload['BlockTwoLink']?.toString() ?? '', blockThreeHeader: payload['BlockThreeHeader']?.toString() ?? '', blockThreeContent: payload['BlockThreeContent']?.toString() ?? '', blockThreeImage: buildUrl(b3p, b3f), blockThreeLink: payload['BlockThreeLink']?.toString() ?? '', blockFourHeaderOne: payload['BlockFourHeaderOne']?.toString() ?? 'SERVICES', blockFourHeaderTwo: payload['BlockFourHeaderTwo']?.toString() ?? 'We provide various Directions', services: services, blockFiveTitle: payload['BlockFiveTitle']?.toString() ?? '', blockFiveContent: payload['BlockFiveContent']?.toString() ?? '', blockFiveVideoLink: payload['BlockFiveVideoLink']?.toString() ?? '', blockFiveHeader: payload['BlockFiveHeader']?.toString() ?? '', clients: clients, mobile: payload['Mobile']?.toString() ?? '', email: payload['Email']?.toString() ?? '', address: payload['Address']?.toString() ?? '', facebook: payload['Facebook']?.toString() ?? '', instagram: payload['Instagram']?.toString() ?? '', linkedIn: payload['LinkedIn']?.toString() ?? '', youTube: payload['YouTube']?.toString() ?? '', gPlus: payload['GPluse']?.toString() ?? '', pinterest: payload['Pinterest']?.toString() ?? '', isServiceWithPrice: (payload['isServiceWithPrice']?.toString().toLowerCase() == 'true' || payload['isServiceWithPrice']?.toString() == '1'));
   }
 }

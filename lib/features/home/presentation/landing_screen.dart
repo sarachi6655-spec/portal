@@ -7,7 +7,16 @@ import '../../../core/utils/responsive.dart';
 import '../../../core/widgets/revol_logo.dart';
 import '../../auth/presentation/controllers/auth_controller.dart';
 import '../data/models/client_portal_details_model.dart';
+import '../data/models/service_detail_model.dart';
 import 'controllers/home_controller.dart';
+import 'widgets/service_card.dart';
+import 'widgets/service_details_dialog.dart';
+import 'views/our_services_view.dart';
+
+enum LandingPageTab {
+  home,
+  services,
+}
 
 class LandingScreen extends StatefulWidget {
   final VoidCallback onNavigateToLogin;
@@ -40,12 +49,14 @@ class _LandingScreenState extends State<LandingScreen> {
   bool _isLoggingInFromNav = false;
   bool _showScrollTop = false;
   bool _obscureNavPassword = true;
+  LandingPageTab _currentTab = LandingPageTab.home;
 
   @override
   void initState() {
     super.initState();
     _homeController.addListener(_onStateChanged);
     _homeController.loadPortalDetails();
+    _homeController.loadClientServices();
 
     _scrollController.addListener(() {
       final show = _scrollController.hasClients && _scrollController.offset > 280;
@@ -83,35 +94,64 @@ class _LandingScreenState extends State<LandingScreen> {
     if (mounted) setState(() {});
   }
 
+  List<ServiceItemDetail> _getAllServices(ClientPortalDetailsModel? details) {
+    const angioplastyImg = ServiceItemDetail.angioplastyImageUrl;
+    const cardiologyImg = ServiceItemDetail.cardiologyImageUrl;
+    const dentalImg = ServiceItemDetail.dentalImageUrl;
+
+    String resolveRealImage(String title, int index) {
+      final t = title.toLowerCase();
+      if (t.contains('angioplasty')) return angioplastyImg;
+      if (t.contains('cardio') || t.contains('heart')) return cardiologyImg;
+      if (t.contains('dental') || t.contains('dentist') || t.contains('teeth')) return dentalImg;
+      const fallbackPool = [cardiologyImg, angioplastyImg, dentalImg];
+      return fallbackPool[index % fallbackPool.length];
+    }
+
+    final sample = ServiceItemDetail.sampleServices;
+    final rawServices = details?.services ?? [];
+    final validServices = rawServices.where((s) => s.title.trim().isNotEmpty || s.content.trim().isNotEmpty).toList();
+
+    if (validServices.isEmpty) {
+      return sample;
+    }
+
+    return List.generate(validServices.length, (index) {
+      final s = validServices[index];
+      final sampleMatch = index < sample.length ? sample[index] : sample[index % sample.length];
+
+      final title = s.title.trim().isNotEmpty ? s.title : sampleMatch.title;
+      final desc = s.content.trim().isNotEmpty ? _cleanHtml(s.content) : sampleMatch.description;
+      final img = resolveRealImage(title, index);
+
+      return ServiceItemDetail(
+        id: 'srv_$index',
+        title: title,
+        description: desc,
+        imagePath: img,
+        category: sampleMatch.category,
+        startingPrice: sampleMatch.startingPrice,
+        subServices: sampleMatch.subServices,
+      );
+    });
+  }
+
   String _cleanHtml(String html) {
-    return html
-        .replaceAll(RegExp(r'<[^>]*>'), ' ')
-        .replaceAll('&nbsp;', ' ')
-        .replaceAll('&amp;', '&')
-        .replaceAll('&lt;', '<')
-        .replaceAll('&gt;', '>')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
+    return html.replaceAll(RegExp(r'<[^>]*>'), ' ').replaceAll('&nbsp;', ' ').replaceAll('&amp;', '&').replaceAll('&lt;', '<').replaceAll('&gt;', '>').replaceAll(RegExp(r'\s+'), ' ').trim();
   }
 
   List<String> _extractListItems(String html) {
     if (html.isEmpty) return [];
     final matches = RegExp(r'<li[^>]*>(.*?)</li>', dotAll: true).allMatches(html);
     if (matches.isEmpty) return [];
-    return matches
-        .map((m) => _cleanHtml(m.group(1) ?? ''))
-        .where((s) => s.isNotEmpty)
-        .toList();
+    return matches.map((m) => _cleanHtml(m.group(1) ?? '')).where((s) => s.isNotEmpty).toList();
   }
 
   List<String> _extractParagraphs(String html) {
     if (html.isEmpty) return [];
     final clean = html.replaceAll(RegExp(r'<ul[^>]*>.*?</ul>', dotAll: true), '');
     final matches = RegExp(r'<p[^>]*>(.*?)</p>', dotAll: true).allMatches(clean);
-    final results = matches
-        .map((m) => _cleanHtml(m.group(1) ?? ''))
-        .where((s) => s.isNotEmpty)
-        .toList();
+    final results = matches.map((m) => _cleanHtml(m.group(1) ?? '')).where((s) => s.isNotEmpty).toList();
     if (results.isEmpty) {
       final stripped = _cleanHtml(clean);
       if (stripped.isNotEmpty) results.add(stripped);
@@ -200,6 +240,7 @@ class _LandingScreenState extends State<LandingScreen> {
     final isMobile = Responsive.isMobile(context);
     final isTablet = Responsive.isTablet(context);
     final details = _homeController.portalDetails;
+    final allServices = _getAllServices(details);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -210,8 +251,11 @@ class _LandingScreenState extends State<LandingScreen> {
               // 1. Top Contact Bar (Dark Navy #152B5B)
               _buildTopContactBar(isMobile, details),
 
-              // 2. Responsive Sticky Navbar with Brand Logo, Contact and LOGIN buttons
+              // 2. Responsive Sticky Navbar with Brand Logo, Navigation Tabs, Contact and LOGIN buttons
               _buildNavBar(isMobile, isTablet, details),
+
+              // Mobile Sub-Navbar Tab Switcher
+              if (isMobile) _buildMobileTabStrip(),
 
               // 3. Main Scrollable Content
               Expanded(
@@ -219,33 +263,54 @@ class _LandingScreenState extends State<LandingScreen> {
                     ? const Center(
                         child: CircularProgressIndicator(color: Color(0xFF007AD5)),
                       )
-                    : SingleChildScrollView(
-                        controller: _scrollController,
-                        child: Column(
-                          children: [
-                            // Hero Carousel Section
-                            _buildHeroSlider(context, isMobile, isTablet, details),
+                    : _currentTab == LandingPageTab.home
+                        ? SingleChildScrollView(
+                            controller: _scrollController,
+                            child: Column(
+                              children: [
+                                // Hero Carousel Section
+                                _buildHeroSlider(context, isMobile, isTablet, details),
 
-                            // Block 1: 4 High-Impact ROI & Metric Cards
-                            _buildBlockOneFancyBoxes(context, isMobile, isTablet, details),
+                                // Block 1: 4 High-Impact ROI & Metric Cards
+                                _buildBlockOneFancyBoxes(context, isMobile, isTablet, details),
 
-                            // Block 2 & 3: Comprehensive Solutions & Medicine Service
-                            _buildSolutionShowcase(context, isMobile, isTablet, details),
+                                // Block 2 & 3: Comprehensive Solutions & Medicine Service
+                                _buildSolutionShowcase(context, isMobile, isTablet, details),
 
-                            // Block 4: OUR SERVICES (8 Service Cards)
-                            _buildBlockFourServicesSection(context, isMobile, isTablet, details),
+                                // Block 4: OUR SERVICES (8 Service Cards)
+                                _buildBlockFourServicesSection(context, isMobile, isTablet, details),
 
-                            // Block 5: Process Step & Video Showcase
-                            _buildBlockFiveVideoSection(context, isMobile, details),
+                                // Block 5: Process Step & Video Showcase
+                                _buildBlockFiveVideoSection(context, isMobile, details),
 
-                            // Client Partners Carousel
-                            _buildClientsSection(context, isMobile, details),
+                                // Client Partners Carousel
+                                _buildClientsSection(context, isMobile, details),
 
-                            // Executive Multi-Column Footer
-                            _buildFooterSection(context, isMobile, isTablet, details),
-                          ],
-                        ),
-                      ),
+                                // Executive Multi-Column Footer
+                                _buildFooterSection(context, isMobile, isTablet, details),
+                              ],
+                            ),
+                          )
+                        : SingleChildScrollView(
+                            controller: _scrollController,
+                            child: Column(
+                              children: [
+                                // Dedicated Our Services Catalog Page
+                                OurServicesView(
+                                  services: _homeController.clientServices.isNotEmpty ? _homeController.clientServices : (_homeController.isClientServicesLoading ? [] : allServices),
+                                  isLoading: _homeController.isClientServicesLoading,
+                                  onBackToHome: () {
+                                    setState(() => _currentTab = LandingPageTab.home);
+                                    _scrollToTop();
+                                  },
+                                  isSpace: _homeController.portalDetails ?? ClientPortalDetailsModel(boxOneHeaderOne: '', boxOneHeaderTwo: '', boxoneContent: '', boxoneLink: '', sliderImage1: '', boxTwoHeaderOne: '', boxTwoHeaderTwo: '', boxTwoContent: '', boxTwoLink: '', sliderImage2: '', boxThreeHeaderOne: '', boxThreeHeaderTwo: '', boxThreeContent: '', boxThreeLink: '', sliderImage3: '', headerLogo: '', footerLogo: '', blockOneBoxOneTitle: '', blockOneBoxOneContent: '', blockOneBoxOneIcon: '', blockOneBoxOneLink: '', blockOneBoxTwoTitle: '', blockOneBoxTwoContent: '', blockOneBoxTwoIcon: '', blockOneBoxTwoLink: '', blockOneBoxThreeTitle: '', blockOneBoxThreeContent: '', blockOneBoxThreeIcon: '', blockOneBoxThreeLink: '', blockOneBoxFourTitle: '', blockOneBoxFourContent: '', blockOneBoxFourIcon: '', blockOneBoxFourLink: '', blockTwoHeader: '', blockTwoContent: '', blockTwoImage: '', blockTwoLink: '', blockThreeHeader: '', blockThreeContent: '', blockThreeImage: '', blockThreeLink: '', blockFourHeaderOne: '', blockFourHeaderTwo: '', services: [], blockFiveTitle: '', blockFiveContent: '', blockFiveVideoLink: '', blockFiveHeader: '', clients: [], mobile: '', email: '', address: '', facebook: '', instagram: '', linkedIn: '', youTube: '', gPlus: '', pinterest: '', isServiceWithPrice: false),
+                                ),
+
+                                // Executive Multi-Column Footer
+                                _buildFooterSection(context, isMobile, isTablet, details),
+                              ],
+                            ),
+                          ),
               ),
             ],
           ),
@@ -433,6 +498,20 @@ class _LandingScreenState extends State<LandingScreen> {
 
           SizedBox(width: isUltraNarrow ? 4 : 8),
 
+          // Desktop / Tablet Navigation Tabs (Home & Our Services)
+          if (!isMobile) ...[
+            const SizedBox(width: 20),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildNavTabItem('Home', LandingPageTab.home, Icons.home_rounded),
+                const SizedBox(width: 8),
+                _buildNavTabItem('Services', LandingPageTab.services, Icons.science_rounded),
+              ],
+            ),
+            const Spacer(),
+          ],
+
           // Contact >> Button
           Row(
             children: [
@@ -440,9 +519,7 @@ class _LandingScreenState extends State<LandingScreen> {
                 onTap: () {
                   final email = (details?.email ?? '').trim();
                   final mobile = (details?.mobile ?? '').trim();
-                  final contactMsg = email.isNotEmpty && mobile.isNotEmpty
-                      ? 'Contact: $email | $mobile'
-                      : (email.isNotEmpty ? 'Email: $email' : (mobile.isNotEmpty ? 'Phone: $mobile' : ''));
+                  final contactMsg = email.isNotEmpty && mobile.isNotEmpty ? 'Contact: $email | $mobile' : (email.isNotEmpty ? 'Email: $email' : (mobile.isNotEmpty ? 'Phone: $mobile' : ''));
                   if (contactMsg.isNotEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
@@ -525,6 +602,110 @@ class _LandingScreenState extends State<LandingScreen> {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildNavTabItem(String label, LandingPageTab tab, IconData icon) {
+    final isSelected = _currentTab == tab;
+    return InkWell(
+      onTap: () {
+        if (_currentTab != tab) {
+          setState(() => _currentTab = tab);
+          _scrollToTop();
+        }
+      },
+      borderRadius: BorderRadius.circular(6),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF2490EB).withOpacity(0.08) : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isSelected ? const Color(0xFF2490EB).withOpacity(0.3) : Colors.transparent,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 16,
+              color: isSelected ? const Color(0xFF2490EB) : const Color(0xFF64748B),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: GoogleFonts.montserrat(
+                fontSize: 13.5,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                color: isSelected ? const Color(0xFF2490EB) : const Color(0xFF334155),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMobileTabStrip() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildMobileTabButton('Home', Icons.home_rounded, LandingPageTab.home),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _buildMobileTabButton('Services', Icons.science_rounded, LandingPageTab.services),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobileTabButton(String label, IconData icon, LandingPageTab tab) {
+    final isSelected = _currentTab == tab;
+    return InkWell(
+      onTap: () {
+        if (_currentTab != tab) {
+          setState(() => _currentTab = tab);
+          _scrollToTop();
+        }
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF2490EB) : const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 15,
+              color: isSelected ? Colors.white : const Color(0xFF64748B),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: GoogleFonts.montserrat(
+                fontSize: 12.5,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                color: isSelected ? Colors.white : const Color(0xFF475569),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -648,25 +829,25 @@ class _LandingScreenState extends State<LandingScreen> {
             ),
           ),
 
-          const SizedBox(height: 12),
+          // const SizedBox(height: 12),
 
           // Switch to Fullscreen Login Link
-          Center(
-            child: InkWell(
-              onTap: () {
-                setState(() => _isLoginDropdownOpen = false);
-                widget.onNavigateToLogin();
-              },
-              child: Text(
-                'Open Full Screen Portal Sign In →',
-                style: GoogleFonts.montserrat(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF007AD5),
-                ),
-              ),
-            ),
-          ),
+          // Center(
+          //   child: InkWell(
+          //     onTap: () {
+          //       setState(() => _isLoginDropdownOpen = false);
+          //       widget.onNavigateToLogin();
+          //     },
+          //     child: Text(
+          //       'Open Full Screen Portal Sign In →',
+          //       style: GoogleFonts.montserrat(
+          //         fontSize: 11,
+          //         fontWeight: FontWeight.w600,
+          //         color: const Color(0xFF007AD5),
+          //       ),
+          //     ),
+          //   ),
+          // ),
         ],
       ),
     );
@@ -739,9 +920,7 @@ class _LandingScreenState extends State<LandingScreen> {
 
     final screenHeight = MediaQuery.of(context).size.height;
     // Mobile banner is concise and compact (380px), desktop adapts to full screen
-    final sliderHeight = isMobile
-        ? 380.0
-        : (isTablet ? 480.0 : (screenHeight - 114.0).clamp(560.0, 780.0));
+    final sliderHeight = isMobile ? 380.0 : (isTablet ? 480.0 : (screenHeight - 114.0).clamp(560.0, 780.0));
 
     return Container(
       width: double.infinity,
@@ -1096,10 +1275,7 @@ class _LandingScreenState extends State<LandingScreen> {
                               children: [
                                 Expanded(child: _buildFancyBoxCard(boxes[r * 2])),
                                 const SizedBox(width: 20),
-                                if (r * 2 + 1 < boxes.length)
-                                  Expanded(child: _buildFancyBoxCard(boxes[r * 2 + 1]))
-                                else
-                                  const Expanded(child: SizedBox()),
+                                if (r * 2 + 1 < boxes.length) Expanded(child: _buildFancyBoxCard(boxes[r * 2 + 1])) else const Expanded(child: SizedBox()),
                               ],
                             ),
                           ),
@@ -1383,9 +1559,7 @@ class _LandingScreenState extends State<LandingScreen> {
     final listItems = _extractListItems(rawContent);
     final paragraphs = _extractParagraphs(rawContent);
 
-    final title = paragraphs.isNotEmpty
-        ? paragraphs[0]
-        : details.blockTwoHeader;
+    final title = paragraphs.isNotEmpty ? paragraphs[0] : details.blockTwoHeader;
     final subtitle = paragraphs.length > 1 ? paragraphs[1] : '';
     final bodyParagraphs = paragraphs.length > 2 ? paragraphs.sublist(2) : <String>[];
 
@@ -1577,9 +1751,8 @@ class _LandingScreenState extends State<LandingScreen> {
         ],
       ],
     );
-  }
+  } // OUR SERVICES Section (Dynamically Filterable & Equal Height Cards)
 
-  // OUR SERVICES Section (Dynamically Filterable & Equal Height Cards)
   Widget _buildBlockFourServicesSection(BuildContext context, bool isMobile, bool isTablet, ClientPortalDetailsModel? details) {
     final rawServices = details?.services ?? [];
     final services = rawServices.where((s) {
@@ -1655,10 +1828,7 @@ class _LandingScreenState extends State<LandingScreen> {
                                   children: [
                                     Expanded(child: _buildServiceCard(services[r * 2], (r * 2) % 2 == 0)),
                                     const SizedBox(width: 20),
-                                    if (r * 2 + 1 < services.length)
-                                      Expanded(child: _buildServiceCard(services[r * 2 + 1], (r * 2 + 1) % 2 == 0))
-                                    else
-                                      const Expanded(child: SizedBox()),
+                                    if (r * 2 + 1 < services.length) Expanded(child: _buildServiceCard(services[r * 2 + 1], (r * 2 + 1) % 2 == 0)) else const Expanded(child: SizedBox()),
                                   ],
                                 ),
                               ),
@@ -2200,8 +2370,7 @@ class _LandingScreenState extends State<LandingScreen> {
                                   _buildFooterContactItem('Phone', mobile),
                                   const SizedBox(height: 8),
                                 ],
-                                if (email.isNotEmpty)
-                                  _buildFooterContactItem('Email', email),
+                                if (email.isNotEmpty) _buildFooterContactItem('Email', email),
                               ],
                             ),
                           ),
@@ -2265,8 +2434,7 @@ class _LandingScreenState extends State<LandingScreen> {
                               _buildFooterContactItem('Phone', mobile),
                               const SizedBox(height: 8),
                             ],
-                            if (email.isNotEmpty)
-                              _buildFooterContactItem('Email', email),
+                            if (email.isNotEmpty) _buildFooterContactItem('Email', email),
                           ],
                         ),
                       ),
@@ -2428,4 +2596,3 @@ class _PlayTrianglePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
-

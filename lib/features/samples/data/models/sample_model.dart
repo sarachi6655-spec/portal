@@ -10,6 +10,9 @@ class SampleModel {
   final String logDate;
   final String sampleComments;
   final String analystStatus;
+  final String sampleType;
+  final String workOrderNo;
+  final String sampleContainer;
 
   SampleModel({
     required this.sampleId,
@@ -23,6 +26,9 @@ class SampleModel {
     required this.logDate,
     required this.sampleComments,
     required this.analystStatus,
+    this.sampleType = '',
+    this.workOrderNo = '',
+    this.sampleContainer = '',
   });
 
   int get id => sampleId;
@@ -40,6 +46,9 @@ class SampleModel {
       logDate: json['logDate']?.toString() ?? '',
       sampleComments: json['sampleComments']?.toString() ?? '',
       analystStatus: json['analystStatus']?.toString() ?? json['sampleStatus']?.toString() ?? '',
+      sampleType: json['sampleType']?.toString() ?? '',
+      workOrderNo: json['workOrderNo']?.toString() ?? '',
+      sampleContainer: json['sampleContainer']?.toString() ?? '',
     );
   }
 
@@ -55,5 +64,8 @@ class SampleModel {
     'logDate': logDate,
     'sampleComments': sampleComments,
     'analystStatus': analystStatus,
+    'sampleType': sampleType,
+    'workOrderNo': workOrderNo,
+    'sampleContainer': sampleContainer,
   };
 }

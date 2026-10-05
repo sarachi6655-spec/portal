@@ -6,18 +6,31 @@ import '../../auth/presentation/controllers/auth_controller.dart';
 import '../../dashboard/presentation/widgets/portal_sidebar.dart';
 import '../../dashboard/presentation/widgets/portal_header.dart';
 import 'controllers/sample_controller.dart';
+import '../data/models/my_page_data_model.dart';
+import '../data/models/portal_drill_down_model.dart';
 import 'widgets/sample_status_badge.dart';
 import 'widgets/sample_detail_drawer.dart';
+import 'widgets/drill_down_detail_drawer.dart';
+import 'widgets/drill_down_grid_section.dart';
 import 'widgets/add_sample_dialog.dart';
+import 'widgets/three_d_bar_chart_card.dart';
+import 'widgets/three_d_stat_card.dart';
+import 'widgets/sample_tracking_stats.dart';
+import 'widgets/sample_analytics_chart_card.dart';
+import '../data/models/coa_report_model.dart';
+import 'widgets/coa_tree_view_section.dart';
+import 'widgets/coa_certificate_drawer.dart';
 
 class SampleListScreen extends StatefulWidget {
   final AuthController authController;
   final VoidCallback onLogout;
+  final int initialNavIndex;
 
   const SampleListScreen({
     super.key,
     required this.authController,
     required this.onLogout,
+    this.initialNavIndex = 4, // Default to Sample Tracking screen
   });
 
   @override
@@ -30,13 +43,17 @@ class _SampleListScreenState extends State<SampleListScreen> {
   final TextEditingController _searchController = TextEditingController();
 
   bool _isSidebarCollapsed = false;
-  int _selectedNavIndex = 0; // My Page active by default
+  late int _selectedNavIndex;
 
   @override
   void initState() {
     super.initState();
+    _selectedNavIndex = widget.initialNavIndex;
     _sampleController.addListener(_onStateChanged);
     _sampleController.loadSamples();
+    _sampleController.loadMyPageData();
+    _sampleController.loadSampleWidgets();
+    _sampleController.loadCoaReports();
   }
 
   @override
@@ -79,10 +96,164 @@ class _SampleListScreenState extends State<SampleListScreen> {
               ),
             ),
           ),
-        );
+        ).then((_) {
+          _sampleController.clearSelectedDetail();
+        });
       } else {
-        _scaffoldKey.currentState?.openEndDrawer();
+        showGeneralDialog(
+          context: context,
+          barrierDismissible: true,
+          barrierLabel: 'SampleDetail',
+          barrierColor: Colors.black.withValues(alpha: 0.45),
+          transitionDuration: const Duration(milliseconds: 280),
+          pageBuilder: (dialogContext, anim1, anim2) {
+            return Align(
+              alignment: Alignment.centerRight,
+              child: Material(
+                color: Colors.transparent,
+                child: SampleDetailDrawer(
+                  detail: detail,
+                  onClose: () => Navigator.of(dialogContext).pop(),
+                ),
+              ),
+            );
+          },
+          transitionBuilder: (dialogContext, anim1, anim2, child) {
+            return SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(1, 0),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(
+                parent: anim1,
+                curve: Curves.easeOutCubic,
+              )),
+              child: child,
+            );
+          },
+        ).then((_) {
+          _sampleController.clearSelectedDetail();
+        });
       }
+    }
+  }
+
+  void _handleDrillDown(String label, String xValue, {String? yValue}) {
+    _sampleController.loadDrillDownData(label: label, xValue: xValue, yValue: yValue);
+  }
+
+  void _openDrillDownDetail(PortalDrillDownItemModel item) {
+    _sampleController.selectDrillDownItem(item);
+    if (Responsive.isMobile(context)) {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => FractionallySizedBox(
+          heightFactor: 0.9,
+          child: ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+            child: DrillDownDetailDrawer(
+              item: item,
+              onClose: () => Navigator.of(context).pop(),
+            ),
+          ),
+        ),
+      ).then((_) {
+        _sampleController.selectDrillDownItem(null);
+      });
+    } else {
+      showGeneralDialog(
+        context: context,
+        barrierDismissible: true,
+        barrierLabel: 'DrillDownDetail',
+        barrierColor: Colors.black.withValues(alpha: 0.45),
+        transitionDuration: const Duration(milliseconds: 280),
+        pageBuilder: (dialogContext, anim1, anim2) {
+          return Align(
+            alignment: Alignment.centerRight,
+            child: Material(
+              color: Colors.transparent,
+              child: DrillDownDetailDrawer(
+                item: item,
+                onClose: () => Navigator.of(dialogContext).pop(),
+              ),
+            ),
+          );
+        },
+        transitionBuilder: (dialogContext, anim1, anim2, child) {
+          return SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(1, 0),
+              end: Offset.zero,
+            ).animate(CurvedAnimation(
+              parent: anim1,
+              curve: Curves.easeOutCubic,
+            )),
+            child: child,
+          );
+        },
+      ).then((_) {
+        _sampleController.selectDrillDownItem(null);
+      });
+    }
+  }
+
+  void _openCoaCertificate(CoaSampleNodeModel node, CoaReportItemModel report) {
+    _sampleController.selectCoaNode(node, report);
+    if (Responsive.isMobile(context)) {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => FractionallySizedBox(
+          heightFactor: 0.92,
+          child: ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+            child: CoaCertificateDrawer(
+              node: node,
+              report: report,
+              onClose: () => Navigator.of(context).pop(),
+            ),
+          ),
+        ),
+      ).then((_) {
+        _sampleController.clearSelectedCoaNode();
+      });
+    } else {
+      showGeneralDialog(
+        context: context,
+        barrierDismissible: true,
+        barrierLabel: 'CoaCertificate',
+        barrierColor: Colors.black.withValues(alpha: 0.45),
+        transitionDuration: const Duration(milliseconds: 280),
+        pageBuilder: (dialogContext, anim1, anim2) {
+          return Align(
+            alignment: Alignment.centerRight,
+            child: Material(
+              color: Colors.transparent,
+              child: CoaCertificateDrawer(
+                node: node,
+                report: report,
+                onClose: () => Navigator.of(dialogContext).pop(),
+              ),
+            ),
+          );
+        },
+        transitionBuilder: (dialogContext, anim1, anim2, child) {
+          return SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(1, 0),
+              end: Offset.zero,
+            ).animate(CurvedAnimation(
+              parent: anim1,
+              curve: Curves.easeOutCubic,
+            )),
+            child: child,
+          );
+        },
+      ).then((_) {
+        _sampleController.clearSelectedCoaNode();
+      });
     }
   }
 
@@ -99,20 +270,11 @@ class _SampleListScreenState extends State<SampleListScreen> {
                 isCollapsed: false,
                 selectedIndex: _selectedNavIndex,
                 onItemSelected: (idx) {
+                  if (_sampleController.drillDownLabel != null) {
+                    _sampleController.clearDrillDown();
+                  }
                   setState(() => _selectedNavIndex = idx);
                   Navigator.of(context).pop();
-                },
-              ),
-            )
-          : null,
-      endDrawer: !isMobile && _sampleController.selectedSampleDetail != null
-          ? Drawer(
-              width: 680,
-              child: SampleDetailDrawer(
-                detail: _sampleController.selectedSampleDetail!,
-                onClose: () {
-                  Navigator.of(context).pop();
-                  _sampleController.clearSelectedDetail();
                 },
               ),
             )
@@ -125,7 +287,12 @@ class _SampleListScreenState extends State<SampleListScreen> {
             PortalSidebar(
               isCollapsed: _isSidebarCollapsed,
               selectedIndex: _selectedNavIndex,
-              onItemSelected: (idx) => setState(() => _selectedNavIndex = idx),
+              onItemSelected: (idx) {
+                if (_sampleController.drillDownLabel != null) {
+                  _sampleController.clearDrillDown();
+                }
+                setState(() => _selectedNavIndex = idx);
+              },
             ),
 
           // Main Scrollable Dashboard Content
@@ -146,7 +313,13 @@ class _SampleListScreenState extends State<SampleListScreen> {
 
                 Expanded(
                   child: RefreshIndicator(
-                    onRefresh: _sampleController.loadSamples,
+                    onRefresh: () async {
+                      await Future.wait([
+                        _sampleController.loadSamples(),
+                        _sampleController.loadMyPageData(),
+                        _sampleController.loadCoaReports(),
+                      ]);
+                    },
                     color: AppColors.primary,
                     child: SingleChildScrollView(
                       padding: EdgeInsets.all(isMobile ? 14 : 24),
@@ -243,10 +416,20 @@ class _SampleListScreenState extends State<SampleListScreen> {
         ),
         const SizedBox(height: 16),
 
-        // Quick Stats Summary Badges (5 KPI boxes on My Page, 4 Quick Stat boxes on the other 5 menus)
+        // Quick Stats Summary Badges (5 KPI boxes on My Page, 4 KPI cards on Sample Tracking, 4 Quick Stat boxes on other menus, none on Certificate of Analysis)
         if (_selectedNavIndex == 0) ...[
           _buildMyPageStats(isMobile),
           const SizedBox(height: 20),
+        ] else if (_selectedNavIndex == 4) ...[
+          SampleTrackingStats(
+            controller: _sampleController,
+            isMobile: isMobile,
+            onDrillDown: (label, xValue) => _handleDrillDown(label, xValue),
+          ),
+          const SizedBox(height: 20),
+        ] else if (_selectedNavIndex == 5) ...[
+          // No widgets on Certificate of Analysis screen
+          const SizedBox(height: 6),
         ] else ...[
           _buildSampleListStats(isMobile),
           const SizedBox(height: 20),
@@ -263,10 +446,11 @@ class _SampleListScreenState extends State<SampleListScreen> {
         return GridView.count(
           crossAxisCount: isNarrow ? 2 : 4,
           shrinkWrap: true,
+          clipBehavior: Clip.none,
           physics: const NeverScrollableScrollPhysics(),
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-          childAspectRatio: isNarrow ? 1.8 : 2.4,
+          crossAxisSpacing: 14,
+          mainAxisSpacing: 14,
+          childAspectRatio: isNarrow ? 1.7 : 2.25,
           children: [
             _buildStatCard('Total Samples', '$total', AppColors.cardBlueGradient, Icons.inventory_2_outlined),
             _buildStatCard('Completed', '${_getSampleCount('Complete')}', AppColors.cardGreenGradient, Icons.check_circle_outline),
@@ -281,62 +465,120 @@ class _SampleListScreenState extends State<SampleListScreen> {
   Widget _buildMainViewContent(BuildContext context, bool isMobile) {
     switch (_selectedNavIndex) {
       case 0:
+        if (_sampleController.drillDownLabel != null) {
+          return DrillDownGridSection(
+            controller: _sampleController,
+            isMobile: isMobile,
+            sourceTitle: 'My Page',
+            onBackToDashboard: () => _sampleController.clearDrillDown(),
+            onInspectItem: (item) => _openDrillDownDetail(item),
+          );
+        }
         return _buildMyPageDashboards(context, isMobile);
+      case 4:
+        if (_sampleController.drillDownLabel != null) {
+          return DrillDownGridSection(
+            controller: _sampleController,
+            isMobile: isMobile,
+            sourceTitle: 'Sample Tracking',
+            onBackToDashboard: () => _sampleController.clearDrillDown(),
+            onInspectItem: (item) => _openDrillDownDetail(item),
+          );
+        }
+        return _buildSampleTrackingContent(context, isMobile);
       case 1:
       case 2:
       case 3:
-      case 4:
+        return _buildSampleListSection(context, isMobile);
       case 5:
+        return CoaTreeViewSection(
+          controller: _sampleController,
+          isMobile: isMobile,
+          onInspectCoa: (node, report) => _openCoaCertificate(node, report),
+        );
       default:
         return _buildSampleListSection(context, isMobile);
     }
   }
 
-  // My Page Content: 3 Bar Chart Dashboards (Sample Status, Orders, Payments)
-  Widget _buildMyPageDashboards(BuildContext context, bool isMobile) {
+  Widget _buildSampleTrackingContent(BuildContext context, bool isMobile) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 1. Two Analytical Charts: Sample Status & Sample Analytics
+        _buildSampleTrackingCharts(context, isMobile),
+
+        const SizedBox(height: 20),
+
+        // 2. Existing Grid List
+        _buildSampleListSection(context, isMobile),
+      ],
+    );
+  }
+
+  Widget _buildSampleTrackingCharts(BuildContext context, bool isMobile) {
+    final preCoaBars = _sampleController.preCoaSampleStatusBars;
+    final totalPreCoa = _sampleController.sampleStatusDashboardTotal ??
+        preCoaBars.fold<double>(0.0, (sum, item) => sum + item.value);
+
+    final title = _sampleController.sampleStatusDashboard?.chartName.isNotEmpty == true
+        ? _sampleController.sampleStatusDashboard!.chartName
+        : 'Sample Status';
+
+    final isApiDashboard = _sampleController.sampleStatusDashboard != null;
+
+    final chart1 = ThreeDBarChartCard(
+      title: title,
+      subtitle: isApiDashboard ? 'Status breakdown' : 'All status before COA Generation',
+      icon: Icons.donut_large_rounded,
+      iconColor: const Color(0xFF0284C7),
+      summaryBadge: 'Total: ${totalPreCoa.toInt()}',
+      badgeBgColor: const Color(0xFFE0F2FE),
+      badgeTextColor: const Color(0xFF0369A1),
+      isMobile: isMobile,
+      totalValue: totalPreCoa,
+      unit: 'samples',
+      bars: preCoaBars,
+      onBarTap: (bar) {
+        final label = _sampleController.sampleStatusDashboard?.chartName.isNotEmpty == true
+            ? _sampleController.sampleStatusDashboard!.chartName
+            : 'Sample Status Dashboard';
+        final xValue = (bar.xValue != null && bar.xValue!.isNotEmpty) ? bar.xValue! : bar.label;
+        _handleDrillDown(label, xValue);
+      },
+    );
+
+    final chart2 = SampleAnalyticsChartCard(
+      data: _sampleController.monthlyAnalytics,
+      isMobile: isMobile,
+      onMonthTap: (item, status) {
+        final label = status;
+        final monthOnly = item.shortMonth.isNotEmpty
+            ? item.shortMonth.trim().split(RegExp(r'[- /]')).first
+            : item.month.trim().split(RegExp(r'[- /]')).first;
+        _handleDrillDown(label, monthOnly);
+      },
+    );
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final isDesktop = constraints.maxWidth >= 1080;
-        final isTablet = constraints.maxWidth >= 720 && constraints.maxWidth < 1080;
-
-        final sampleStatusCard = _buildSampleStatusBarChart(isMobile);
-        final ordersCard = _buildOrdersBarChart(isMobile);
-        final paymentsCard = _buildPaymentsBarChart(isMobile);
 
         if (isDesktop) {
           return Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(child: sampleStatusCard),
+              Expanded(child: chart1),
               const SizedBox(width: 16),
-              Expanded(child: ordersCard),
-              const SizedBox(width: 16),
-              Expanded(child: paymentsCard),
-            ],
-          );
-        } else if (isTablet) {
-          return Column(
-            children: [
-              sampleStatusCard,
-              const SizedBox(height: 16),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(child: ordersCard),
-                  const SizedBox(width: 16),
-                  Expanded(child: paymentsCard),
-                ],
-              ),
+              Expanded(child: chart2),
             ],
           );
         } else {
           return Column(
             children: [
-              sampleStatusCard,
+              chart1,
               const SizedBox(height: 16),
-              ordersCard,
-              const SizedBox(height: 16),
-              paymentsCard,
+              chart2,
             ],
           );
         }
@@ -344,406 +586,208 @@ class _SampleListScreenState extends State<SampleListScreen> {
     );
   }
 
-  // Dashboard 1: Sample Status Bar Chart
-  Widget _buildSampleStatusBarChart(bool isMobile) {
-    final completed = _getSampleCount('Complete').toDouble();
-    final inProgress = _getSampleCount('Progress').toDouble();
-    final sampling = _getSampleCount('Sampling').toDouble();
-    final received = _getSampleCount('Received').toDouble();
-    final pendingHold = (_getSampleCount('Pending') + _getSampleCount('Hold')).toDouble();
-    final total = _sampleController.samples.length;
+  // My Page Content: Bar Chart Dashboards (Sample Status, Orders, Payments)
+  Widget _buildMyPageDashboards(BuildContext context, bool isMobile) {
+    if (_sampleController.isMyPageLoading && _sampleController.myPageData == null) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 40),
+        child: Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
+      );
+    }
 
-    return _buildBarChartCard(
-      title: 'Sample Status',
+    final myPage = _sampleController.myPageData;
+    if (myPage == null) {
+      return const SizedBox.shrink();
+    }
+
+    final sampleStatus = myPage.sampleStatusDashboard;
+    final orders = myPage.ordersDashboard;
+    final payments = myPage.paymentsDashboard;
+
+    final List<Widget> chartCards = [];
+    if (sampleStatus != null && sampleStatus.series.isNotEmpty) {
+      chartCards.add(_buildSampleStatusBarChart(isMobile, sampleStatus));
+    }
+    if (orders != null && orders.series.isNotEmpty) {
+      chartCards.add(_buildOrdersBarChart(isMobile, orders));
+    }
+    if (payments != null && payments.series.isNotEmpty) {
+      chartCards.add(_buildPaymentsBarChart(isMobile, payments));
+    }
+
+    if (chartCards.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isDesktop = constraints.maxWidth >= 1080;
+        final isTablet = constraints.maxWidth >= 720 && constraints.maxWidth < 1080;
+
+        if (isDesktop) {
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (int i = 0; i < chartCards.length; i++) ...[
+                if (i > 0) const SizedBox(width: 16),
+                Expanded(child: chartCards[i]),
+              ],
+            ],
+          );
+        } else if (isTablet && chartCards.length > 1) {
+          return Column(
+            children: [
+              chartCards.first,
+              const SizedBox(height: 16),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (int i = 1; i < chartCards.length; i++) ...[
+                    if (i > 1) const SizedBox(width: 16),
+                    Expanded(child: chartCards[i]),
+                  ],
+                ],
+              ),
+            ],
+          );
+        } else {
+          return Column(
+            children: [
+              for (int i = 0; i < chartCards.length; i++) ...[
+                if (i > 0) const SizedBox(height: 16),
+                chartCards[i],
+              ],
+            ],
+          );
+        }
+      },
+    );
+  }
+
+  static const List<LinearGradient> _sampleStatusGradients = [
+    LinearGradient(colors: [Color(0xFF10B981), Color(0xFF059669)]),
+    LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF4F46E5)]),
+    LinearGradient(colors: [Color(0xFFF97316), Color(0xFFC2410C)]),
+    LinearGradient(colors: [Color(0xFF0284C7), Color(0xFF0369A1)]),
+    LinearGradient(colors: [Color(0xFF8B5CF6), Color(0xFF6D28D9)]),
+    LinearGradient(colors: [Color(0xFF0D9488), Color(0xFF0F766E)]),
+  ];
+
+  static const List<LinearGradient> _ordersGradients = [
+    LinearGradient(colors: [Color(0xFF38BDF8), Color(0xFF0284C7)]),
+    LinearGradient(colors: [Color(0xFF818CF8), Color(0xFF4F46E5)]),
+    LinearGradient(colors: [Color(0xFF2DD4BF), Color(0xFF0D9488)]),
+    LinearGradient(colors: [Color(0xFF34D399), Color(0xFF059669)]),
+    LinearGradient(colors: [Color(0xFFA78BFA), Color(0xFF7C3AED)]),
+    LinearGradient(colors: [Color(0xFFF472B6), Color(0xFFDB2777)]),
+  ];
+
+  static const List<LinearGradient> _paymentsGradients = [
+    LinearGradient(colors: [Color(0xFF10B981), Color(0xFF047857)]),
+    LinearGradient(colors: [Color(0xFFFBBF24), Color(0xFFD97706)]),
+    LinearGradient(colors: [Color(0xFFEF4444), Color(0xFFB91C1C)]),
+    LinearGradient(colors: [Color(0xFFF97316), Color(0xFFC2410C)]),
+    LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF4338CA)]),
+    LinearGradient(colors: [Color(0xFF06B6D4), Color(0xFF0891B2)]),
+  ];
+
+  List<BarChartItem> _buildBarsFromChart(
+    DashboardChartModel? chart,
+    List<LinearGradient> palette,
+  ) {
+    if (chart == null || chart.series.isEmpty) return [];
+
+    return chart.series.asMap().entries.map((entry) {
+      final idx = entry.key;
+      final item = entry.value;
+      final gradient = palette[idx % palette.length];
+      final display = item.yValue % 1 == 0 ? '${item.yValue.toInt()}' : '${item.yValue}';
+
+      return BarChartItem(
+        label: item.label,
+        xValue: item.xValue,
+        value: item.yValue > 0 ? item.yValue.toDouble() : 0.0,
+        displayValue: display,
+        gradient: gradient,
+        isHighlighted: idx == chart.series.length - 1,
+      );
+    }).toList();
+  }
+
+  // Dashboard 1: Sample Status 3D Bar Chart
+  Widget _buildSampleStatusBarChart(bool isMobile, DashboardChartModel dashboard) {
+    final bars = _buildBarsFromChart(dashboard, _sampleStatusGradients);
+    final summary = 'Total: ${dashboard.totalValue % 1 == 0 ? dashboard.totalValue.toInt() : dashboard.totalValue}';
+
+    return ThreeDBarChartCard(
+      title: dashboard.chartName.isNotEmpty ? dashboard.chartName : 'Sample Status',
       subtitle: 'Testing stages breakdown',
       icon: Icons.analytics_rounded,
       iconColor: const Color(0xFF2490EB),
-      summaryBadge: 'Total: $total',
+      summaryBadge: summary,
       badgeBgColor: const Color(0xFFD3E9FB),
       badgeTextColor: const Color(0xFF14457B),
       isMobile: isMobile,
-      bars: [
-        _BarData(
-          label: 'Completed',
-          value: completed > 0 ? completed : 0.2,
-          displayValue: '${completed.toInt()}',
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF10B981), Color(0xFF059669)],
-          ),
-        ),
-        _BarData(
-          label: 'In Progress',
-          value: inProgress > 0 ? inProgress : 0.2,
-          displayValue: '${inProgress.toInt()}',
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
-          ),
-        ),
-        _BarData(
-          label: 'Sampling',
-          value: sampling > 0 ? sampling : 0.2,
-          displayValue: '${sampling.toInt()}',
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF0284C7), Color(0xFF0369A1)],
-          ),
-        ),
-        _BarData(
-          label: 'Received',
-          value: received > 0 ? received : 0.2,
-          displayValue: '${received.toInt()}',
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF0D9488), Color(0xFF0F766E)],
-          ),
-        ),
-        _BarData(
-          label: 'Pending',
-          value: pendingHold > 0 ? pendingHold : 0.2,
-          displayValue: '${pendingHold.toInt()}',
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFF97316), Color(0xFFC2410C)],
-          ),
-        ),
-      ],
+      totalValue: dashboard.totalValue.toDouble(),
+      unit: 'samples',
+      bars: bars,
+      onBarTap: (bar) {
+        final label = dashboard.chartName.isNotEmpty ? dashboard.chartName : 'Sample Status Dashboard';
+        final xValue = (bar.xValue != null && bar.xValue!.isNotEmpty) ? bar.xValue! : bar.label;
+        _handleDrillDown(label, xValue);
+      },
     );
   }
 
-  // Dashboard 2: Orders Bar Chart
-  Widget _buildOrdersBarChart(bool isMobile) {
-    return _buildBarChartCard(
-      title: 'Orders Dashboard',
+  // Dashboard 2: Orders 3D Bar Chart
+  Widget _buildOrdersBarChart(bool isMobile, DashboardChartModel dashboard) {
+    final bars = _buildBarsFromChart(dashboard, _ordersGradients);
+    final summary = 'Total: ${dashboard.totalValue % 1 == 0 ? dashboard.totalValue.toInt() : dashboard.totalValue}';
+
+    return ThreeDBarChartCard(
+      title: dashboard.chartName.isNotEmpty ? dashboard.chartName : 'Orders Dashboard',
       subtitle: 'Monthly purchase orders',
       icon: Icons.receipt_long_rounded,
       iconColor: const Color(0xFF0D9488),
-      summaryBadge: 'Total: 93',
+      summaryBadge: summary,
       badgeBgColor: const Color(0xFFCCFBF1),
       badgeTextColor: const Color(0xFF0F766E),
       isMobile: isMobile,
-      bars: [
-        _BarData(
-          label: 'Apr',
-          value: 8,
-          displayValue: '8',
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF2DD4BF), Color(0xFF0D9488)],
-          ),
-        ),
-        _BarData(
-          label: 'May',
-          value: 14,
-          displayValue: '14',
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF2DD4BF), Color(0xFF0D9488)],
-          ),
-        ),
-        _BarData(
-          label: 'Jun',
-          value: 19,
-          displayValue: '19',
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF2DD4BF), Color(0xFF0D9488)],
-          ),
-        ),
-        _BarData(
-          label: 'Jul',
-          value: 12,
-          displayValue: '12',
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF2DD4BF), Color(0xFF0D9488)],
-          ),
-        ),
-        _BarData(
-          label: 'Aug',
-          value: 24,
-          displayValue: '24',
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF14B8A6), Color(0xFF0F766E)],
-          ),
-        ),
-        _BarData(
-          label: 'Sep',
-          value: 16,
-          displayValue: '16',
-          isHighlighted: true,
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF0D9488), Color(0xFF115E59)],
-          ),
-        ),
-      ],
+      totalValue: dashboard.totalValue.toDouble(),
+      unit: 'orders',
+      bars: bars,
+      onBarTap: (bar) {
+        final label = dashboard.chartName.isNotEmpty ? dashboard.chartName : 'Orders Dashboard';
+        final xValue = (bar.xValue != null && bar.xValue!.isNotEmpty) ? bar.xValue! : bar.label;
+        _handleDrillDown(label, xValue);
+      },
     );
   }
 
-  // Dashboard 3: Payments Bar Chart
-  Widget _buildPaymentsBarChart(bool isMobile) {
-    return _buildBarChartCard(
-      title: 'Payments Dashboard',
-      subtitle: 'Monthly collections (SAR k)',
+  // Dashboard 3: Payments 3D Bar Chart
+  Widget _buildPaymentsBarChart(bool isMobile, DashboardChartModel dashboard) {
+    final bars = _buildBarsFromChart(dashboard, _paymentsGradients);
+    final summary = 'Total: ${dashboard.totalValue % 1 == 0 ? dashboard.totalValue.toInt() : dashboard.totalValue}';
+
+    return ThreeDBarChartCard(
+      title: dashboard.chartName.isNotEmpty ? dashboard.chartName : 'Payments Dashboard',
+      subtitle: 'Collections breakdown',
       icon: Icons.account_balance_wallet_rounded,
       iconColor: const Color(0xFFD97706),
-      summaryBadge: 'SAR 126.5k',
+      summaryBadge: summary,
       badgeBgColor: const Color(0xFFFEF3C7),
       badgeTextColor: const Color(0xFFB45309),
       isMobile: isMobile,
-      bars: [
-        _BarData(
-          label: 'Apr',
-          value: 12.5,
-          displayValue: '12.5k',
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFFBBF24), Color(0xFFD97706)],
-          ),
-        ),
-        _BarData(
-          label: 'May',
-          value: 18.2,
-          displayValue: '18.2k',
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFFBBF24), Color(0xFFD97706)],
-          ),
-        ),
-        _BarData(
-          label: 'Jun',
-          value: 25.0,
-          displayValue: '25.0k',
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFFBBF24), Color(0xFFD97706)],
-          ),
-        ),
-        _BarData(
-          label: 'Jul',
-          value: 16.8,
-          displayValue: '16.8k',
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFFBBF24), Color(0xFFD97706)],
-          ),
-        ),
-        _BarData(
-          label: 'Aug',
-          value: 32.4,
-          displayValue: '32.4k',
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFF59E0B), Color(0xFFB45309)],
-          ),
-        ),
-        _BarData(
-          label: 'Sep',
-          value: 21.6,
-          displayValue: '21.6k',
-          isHighlighted: true,
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFD97706), Color(0xFF92400E)],
-          ),
-        ),
-      ],
-    );
-  }
-
-  // Reusable Bar Chart Card Component
-  Widget _buildBarChartCard({
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required Color iconColor,
-    required String summaryBadge,
-    required Color badgeBgColor,
-    required Color badgeTextColor,
-    required List<_BarData> bars,
-    required bool isMobile,
-  }) {
-    double maxVal = 0;
-    for (final b in bars) {
-      if (b.value > maxVal) maxVal = b.value;
-    }
-    if (maxVal == 0) maxVal = 1;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.bgCard,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: const [
-          BoxShadow(
-            color: AppColors.shadow,
-            blurRadius: 10,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      padding: EdgeInsets.all(isMobile ? 16 : 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: iconColor.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Center(child: Icon(icon, color: iconColor, size: 20)),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            title,
-                            style: GoogleFonts.montserrat(
-                              fontSize: isMobile ? 15 : 16,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            subtitle,
-                            style: GoogleFonts.montserrat(
-                              fontSize: 11.5,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                decoration: BoxDecoration(
-                  color: badgeBgColor,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  summaryBadge,
-                  style: GoogleFonts.montserrat(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: badgeTextColor,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          const Divider(color: AppColors.borderLight, height: 1),
-          const SizedBox(height: 20),
-
-          // Bar Chart Content Area
-          SizedBox(
-            height: 180,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: bars.map((bar) {
-                final ratio = (bar.value / maxVal).clamp(0.05, 1.0);
-                return Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        // Top Value Text
-                        Text(
-                          bar.displayValue,
-                          style: GoogleFonts.montserrat(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: bar.isHighlighted ? iconColor : AppColors.textPrimary,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 6),
-
-                        // Bar Column
-                        Expanded(
-                          child: Align(
-                            alignment: Alignment.bottomCenter,
-                            child: FractionallySizedBox(
-                              heightFactor: ratio,
-                              widthFactor: isMobile ? 0.6 : 0.45,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  gradient: bar.gradient,
-                                  borderRadius: const BorderRadius.vertical(top: Radius.circular(5)),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: bar.gradient.colors.first.withValues(alpha: 0.3),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-
-                        // Bottom X-axis label
-                        SizedBox(
-                          height: 28,
-                          child: Text(
-                            bar.label,
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.montserrat(
-                              fontSize: 10.5,
-                              fontWeight: bar.isHighlighted ? FontWeight.w700 : FontWeight.w500,
-                              color: bar.isHighlighted ? AppColors.textPrimary : AppColors.textSecondary,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-        ],
-      ),
+      totalValue: dashboard.totalValue.toDouble(),
+      unit: 'SAR',
+      bars: bars,
+      onBarTap: (bar) {
+        final label = dashboard.chartName.isNotEmpty ? dashboard.chartName : 'Payments Dashboard';
+        final xValue = (bar.xValue != null && bar.xValue!.isNotEmpty) ? bar.xValue! : bar.label;
+        _handleDrillDown(label, xValue);
+      },
     );
   }
 
@@ -791,63 +835,111 @@ class _SampleListScreenState extends State<SampleListScreen> {
     );
   }
 
+  (IconData, LinearGradient) _getWidgetStyle(String name) {
+    final lower = name.toLowerCase();
+    if (lower.contains('enquiry')) {
+      return (
+        Icons.help_outline_rounded,
+        const LinearGradient(colors: [Color(0xFF0284C7), Color(0xFF0369A1)]),
+      );
+    } else if (lower.contains('order')) {
+      return (
+        Icons.receipt_long_rounded,
+        const LinearGradient(colors: [Color(0xFF0D9488), Color(0xFF0F766E)]),
+      );
+    } else if (lower.contains('payment')) {
+      return (
+        Icons.account_balance_wallet_rounded,
+        const LinearGradient(colors: [Color(0xFFD97706), Color(0xFFB45309)]),
+      );
+    } else if (lower.contains('complete')) {
+      return (
+        Icons.check_circle_outline_rounded,
+        const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF059669)]),
+      );
+    } else if (lower.contains('result')) {
+      return (
+        Icons.hourglass_top_rounded,
+        const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF4F46E5)]),
+      );
+    } else if (lower.contains('send')) {
+      return (
+        Icons.local_shipping_outlined,
+        const LinearGradient(colors: [Color(0xFFF97316), Color(0xFFC2410C)]),
+      );
+    }
+    return (
+      Icons.analytics_outlined,
+      AppColors.cardBlueGradient,
+    );
+  }
+
   Widget _buildMyPageStats(bool isMobile) {
+    if (_sampleController.isMyPageLoading && _sampleController.myPageData == null) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 24),
+        child: Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
+      );
+    }
+
+    final myPage = _sampleController.myPageData;
+    if (myPage == null || myPage.widgets.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final List<Widget> statCards = [];
+    for (final w in myPage.widgets) {
+      final style = _getWidgetStyle(w.name);
+      final icon = style.$1;
+      final gradient = style.$2;
+      final displayValue = w.value % 1 == 0 ? '${w.value.toInt()}' : '${w.value}';
+      statCards.add(
+        _buildStatCard(
+          w.name,
+          displayValue,
+          gradient,
+          icon,
+          onTap: () {
+            final xVal = (w.xValue != null && w.xValue!.trim().isNotEmpty)
+                ? w.xValue!.trim()
+                : '';
+            final label = (w.label != null && w.label!.trim().isNotEmpty)
+                ? w.label!.trim()
+                : w.name;
+            _handleDrillDown(label, xVal);
+          },
+        ),
+      );
+    }
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
         int crossAxisCount;
         double childAspectRatio;
 
-        if (width >= 1100) {
-          crossAxisCount = 5;
-          childAspectRatio = 1.75;
+        if (width >= 1200) {
+          crossAxisCount = statCards.length.clamp(1, 6);
+          childAspectRatio = 1.72;
         } else if (width >= 750) {
-          crossAxisCount = 3;
-          childAspectRatio = 2.2;
+          crossAxisCount = statCards.length > 3 ? 3 : statCards.length;
+          childAspectRatio = 2.05;
         } else {
-          crossAxisCount = 2;
-          childAspectRatio = 1.7;
+          crossAxisCount = statCards.length > 1 ? 2 : 1;
+          childAspectRatio = 1.62;
         }
 
         return GridView.count(
           crossAxisCount: crossAxisCount,
           shrinkWrap: true,
+          clipBehavior: Clip.none,
           physics: const NeverScrollableScrollPhysics(),
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
+          crossAxisSpacing: 14,
+          mainAxisSpacing: 14,
           childAspectRatio: childAspectRatio,
-          children: [
-            _buildStatCard(
-              'Enquiry',
-              '0',
-              const LinearGradient(colors: [Color(0xFF0284C7), Color(0xFF0369A1)]),
-              Icons.help_outline,
-            ),
-            _buildStatCard(
-              'Payment',
-              '0',
-              const LinearGradient(colors: [Color(0xFFD97706), Color(0xFFB45309)]),
-              Icons.account_balance_wallet_outlined,
-            ),
-            _buildStatCard(
-              'Completed Samples',
-              '${_getSampleCount('Complete')}',
-              const LinearGradient(colors: [Color(0xFF10B981), Color(0xFF059669)]),
-              Icons.check_circle_outline,
-            ),
-            _buildStatCard(
-              'Result Due Samples',
-              '${_getResultDueCount()}',
-              const LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF4F46E5)]),
-              Icons.hourglass_top_outlined,
-            ),
-            _buildStatCard(
-              'Sending Due Samples',
-              '${_getSendingDueCount()}',
-              const LinearGradient(colors: [Color(0xFFF97316), Color(0xFFC2410C)]),
-              Icons.local_shipping_outlined,
-            ),
-          ],
+          children: statCards,
         );
       },
     );
@@ -857,71 +949,19 @@ class _SampleListScreenState extends State<SampleListScreen> {
     return _sampleController.samples.where((s) => s.sampleStatus.toLowerCase().contains(keyword.toLowerCase())).length;
   }
 
-  int _getResultDueCount() {
-    return _sampleController.samples.where((s) {
-      final st = s.sampleStatus.toLowerCase();
-      return st.contains('sampling') || st.contains('received') || st.contains('progress') || st.contains('due');
-    }).length;
-  }
-
-  int _getSendingDueCount() {
-    return _sampleController.samples.where((s) {
-      final st = s.sampleStatus.toLowerCase();
-      return st.contains('pending') || st.contains('hold') || st.contains('send') || st.contains('dispatch');
-    }).length;
-  }
-
-  Widget _buildStatCard(String label, String value, LinearGradient gradient, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        gradient: gradient,
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: const [
-          BoxShadow(color: AppColors.shadow, blurRadius: 6, offset: Offset(0, 2)),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  label.toUpperCase(),
-                  style: GoogleFonts.montserrat(
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white.withOpacity(0.92),
-                    letterSpacing: 0.4,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  value,
-                  style: GoogleFonts.montserrat(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 6),
-          Container(
-            padding: const EdgeInsets.all(7),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.22),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, color: Colors.white, size: 18),
-          ),
-        ],
-      ),
+  Widget _buildStatCard(
+    String label,
+    String value,
+    LinearGradient gradient,
+    IconData icon, {
+    VoidCallback? onTap,
+  }) {
+    return ThreeDStatCard(
+      label: label,
+      value: value,
+      gradient: gradient,
+      icon: icon,
+      onTap: onTap,
     );
   }
 
@@ -958,8 +998,18 @@ class _SampleListScreenState extends State<SampleListScreen> {
               Expanded(
                 child: DropdownButtonFormField<String>(
                   value: _sampleController.selectedStatusFilter,
-                  items: ['All', 'In Progress', 'Completed', 'Pending', 'Hold'].map((st) {
-                    return DropdownMenuItem(value: st, child: Text(st, style: const TextStyle(fontSize: 12)));
+                  isExpanded: true,
+                  items: _sampleController.availableStatusFilters.map((st) {
+                    final count = _sampleController.getSampleCountByStatus(st);
+                    final label = st == 'All' ? 'All ($count)' : '$st ($count)';
+                    return DropdownMenuItem(
+                      value: st,
+                      child: Text(
+                        label,
+                        style: const TextStyle(fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    );
                   }).toList(),
                   onChanged: (val) {
                     if (val != null) _sampleController.setStatusFilter(val);
@@ -1028,10 +1078,15 @@ class _SampleListScreenState extends State<SampleListScreen> {
             child: DropdownButton<String>(
               value: _sampleController.selectedStatusFilter,
               icon: const Icon(Icons.filter_list, size: 16, color: AppColors.textSecondary),
-              items: ['All', 'In Progress', 'Completed', 'Pending', 'Hold'].map((st) {
+              items: _sampleController.availableStatusFilters.map((st) {
+                final count = _sampleController.getSampleCountByStatus(st);
+                final label = st == 'All' ? 'Status: All ($count)' : 'Status: $st ($count)';
                 return DropdownMenuItem(
                   value: st,
-                  child: Text('Status: $st', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                  child: Text(
+                    label,
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                  ),
                 );
               }).toList(),
               onChanged: (val) {
@@ -1231,21 +1286,5 @@ class _SampleListScreenState extends State<SampleListScreen> {
     );
   }
 
-}
-
-class _BarData {
-  final String label;
-  final double value;
-  final String displayValue;
-  final LinearGradient gradient;
-  final bool isHighlighted;
-
-  _BarData({
-    required this.label,
-    required this.value,
-    required this.displayValue,
-    required this.gradient,
-    this.isHighlighted = false,
-  });
 }
 

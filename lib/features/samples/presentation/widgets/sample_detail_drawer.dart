@@ -18,11 +18,26 @@ class SampleDetailDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isMobile = Responsive.isMobile(context);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final drawerWidth = isMobile
+        ? screenWidth
+        : (screenWidth < 750 ? screenWidth * 0.92 : 680.0);
 
     return Container(
-      width: isMobile ? MediaQuery.of(context).size.width : 680,
+      width: drawerWidth,
       height: MediaQuery.of(context).size.height,
-      color: Colors.white,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: isMobile
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.18),
+                  blurRadius: 28,
+                  offset: const Offset(-6, 0),
+                ),
+              ],
+      ),
       child: Column(
         children: [
           // Drawer Top Bar

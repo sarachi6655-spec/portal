@@ -2,7 +2,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/responsive.dart';
 import '../../../core/widgets/revol_logo.dart';
 import 'controllers/auth_controller.dart';
@@ -372,21 +371,38 @@ class _LoginScreenState extends State<LoginScreen> {
           // Error banner
           if (widget.authController.errorMessage != null)
             Container(
-              padding: const EdgeInsets.all(12),
-              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              margin: const EdgeInsets.only(bottom: 20),
               decoration: BoxDecoration(
-                color: Colors.red.shade900.withOpacity(0.85),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.red.shade300),
+                color: const Color(0xFFFEE2E2),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFFCA5A5), width: 1),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x1A000000),
+                    blurRadius: 8,
+                    offset: Offset(0, 2),
+                  ),
+                ],
               ),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.error_outline, color: Colors.white, size: 18),
-                  const SizedBox(width: 8),
+                  const Icon(
+                    Icons.error_outline_rounded,
+                    color: Color(0xFF991B1B),
+                    size: 20,
+                  ),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       widget.authController.errorMessage!,
-                      style: GoogleFonts.montserrat(color: Colors.white, fontSize: 12),
+                      style: GoogleFonts.plusJakartaSans(
+                        color: const Color(0xFF991B1B),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        height: 1.35,
+                      ),
                     ),
                   ),
                 ],

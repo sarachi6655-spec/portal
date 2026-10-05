@@ -16,6 +16,15 @@ class SecureStorageService {
   static const String _keyAppUser = 'appuser';
   static const String _keyUserRole = 'userrole';
   static const String _keyUserName = 'username';
+  static const String _keyLandingSessionToken = 'landing_session_token';
+
+  Future<void> saveLandingSessionToken(String token) async {
+    await _storage.write(key: _keyLandingSessionToken, value: token);
+  }
+
+  Future<String?> getLandingSessionToken() async {
+    return await _storage.read(key: _keyLandingSessionToken);
+  }
 
   Future<void> saveAuthSession({
     required String token,
@@ -35,19 +44,60 @@ class SecureStorageService {
     }
   }
 
-  Future<String?> getToken() async => await _storage.read(key: _keyToken);
-  Future<String?> getSiteId() async => (await _storage.read(key: _keySiteId)) ?? ApiConstants.defaultSiteId;
-  Future<String?> getPortalUserId() async => await _storage.read(key: _keyPortalUserId);
+  Future<String?> getToken() async {
+    final token = await _storage.read(key: _keyToken);
+    if (token == null || token.isEmpty) {
+      return null;
+    }
+    if (token.contains('TUFOVUxJTVM') ||
+        token.contains('xJdlG81isWLaYqvXPqA8jRTmTQ_FIhMuPG0eD6hXkAU') ||
+        token.contains('NGSQLJ21')) {
+      await clearAuthSession();
+      return null;
+    }
+    return token;
+  }
+
+  Future<String?> getSiteId() async {
+    final site = await _storage.read(key: _keySiteId);
+    if (site == null || site.isEmpty || site == 'NGSQLJ21') {
+      return ApiConstants.defaultSiteId;
+    }
+    return site;
+  }
+
+  Future<String?> getPortalUserId() async {
+    final id = await _storage.read(key: _keyPortalUserId);
+    if (id == null || id.isEmpty || id == '3yiFcFKcm4vmJj9xKWrStQ' || id == '1') {
+      return ApiConstants.defaultPortalUserId;
+    }
+    return id;
+  }
   Future<String?> getAppUser() async => (await _storage.read(key: _keyAppUser)) ?? ApiConstants.defaultAppUser;
   Future<String?> getUserRole() async => (await _storage.read(key: _keyUserRole)) ?? ApiConstants.defaultUserRole;
   Future<String?> getUserName() async => await _storage.read(key: _keyUserName);
 
   Future<bool> isAuthenticated() async {
-    final token = await getToken();
-    return token != null && token.isNotEmpty;
+    final token = await _storage.read(key: _keyToken);
+    if (token == null || token.isEmpty) {
+      return false;
+    }
+    if (token.contains('TUFOVUxJTVM') ||
+        token.contains('xJdlG81isWLaYqvXPqA8jRTmTQ_FIhMuPG0eD6hXkAU') ||
+        token.contains('NGSQLJ21')) {
+      await clearAuthSession();
+      return false;
+    }
+    return true;
   }
 
   Future<void> clearAuthSession() async {
+    await _storage.delete(key: _keyToken);
+    await _storage.delete(key: _keySiteId);
+    await _storage.delete(key: _keyPortalUserId);
+    await _storage.delete(key: _keyAppUser);
+    await _storage.delete(key: _keyUserRole);
+    await _storage.delete(key: _keyUserName);
     await _storage.deleteAll();
   }
 }

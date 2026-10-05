@@ -11,6 +11,7 @@
         "cupertino_icons",
         "dio",
         "firebase_core",
+        "fl_chart",
         "flutter",
         "flutter_animate",
         "flutter_secure_storage",
@@ -18,6 +19,7 @@
         "font_awesome_flutter",
         "google_fonts",
         "intl",
+        "shimmer",
         "url_launcher"
       ],
       "devDependencies": [
@@ -48,6 +50,21 @@
         "stream_channel",
         "test_api",
         "vector_math"
+      ]
+    },
+    {
+      "name": "shimmer",
+      "version": "3.0.0",
+      "dependencies": [
+        "flutter"
+      ]
+    },
+    {
+      "name": "fl_chart",
+      "version": "0.68.0",
+      "dependencies": [
+        "equatable",
+        "flutter"
       ]
     },
     {
@@ -256,6 +273,14 @@
         "stream_channel",
         "string_scanner",
         "term_glyph"
+      ]
+    },
+    {
+      "name": "equatable",
+      "version": "2.1.0",
+      "dependencies": [
+        "collection",
+        "meta"
       ]
     },
     {
